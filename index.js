@@ -50,9 +50,9 @@ async function pollGitHubActivity() {
             .map((c) => `- ${c.message} (${c.author.name})`)
             .join("\n");
       } else if (event.type === "IssuesEvent") {
-        msg += `\n📝 ${event.payload.action} issue #${event.payload.issue.number}: ${event.payload.issue.title}`;
+        msg += `\n${event.payload.action} issue #${event.payload.issue.number}: ${event.payload.issue.title}`;
       } else if (event.type === "PullRequestEvent") {
-        msg += `\n🔀 ${event.payload.action} pull request #${event.payload.pull_request.number}: ${event.payload.pull_request.title}`;
+        msg += `\n${event.payload.action} pull request #${event.payload.pull_request.number}: ${event.payload.pull_request.title}`;
       }
 
       await channel.send(msg);
