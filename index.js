@@ -1,10 +1,18 @@
-const { Client, GatewayIntentBits, Collection } = require("discord.js");
-require("dotenv").config();
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const { Octokit } = require("@octokit/rest");
-const crypto = require("crypto");
+import { Client, GatewayIntentBits, Collection } from "discord.js";
+import dotenv from "dotenv";
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { Octokit } from "@octokit/rest";
+import crypto from "crypto";
+import { fileURLToPath } from "url";
+
+// Setup __dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables
+dotenv.config();
 
 // === Discord Client ===
 const client = new Client({
@@ -19,7 +27,7 @@ const commandFiles = fs
   .filter((file) => file.endsWith(".js"));
 
 for (const file of commandFiles) {
-  const command = require(path.join(commandsPath, file));
+  const command = await import(path.join(commandsPath, file));
   if ("data" in command && "execute" in command) {
     client.commands.set(command.data.name, command);
   } else {
@@ -148,7 +156,7 @@ app.post("/github-webhook", async (req, res) => {
     const commits = payload.commits
       .map((c) => `- ${c.message} (${c.author.name})`)
       .join("\n");
-    const msg = ` **${payload.pusher.name}** pushed to \`${payload.repository.name}\`:\n${commits}`;
+    const msg = `📦 **${payload.pusher.name}** pushed to \`${payload.repository.name}\`:\n${commits}`;
     await channel.send(msg);
   } else {
     const msg = `📣 GitHub event: \`${event}\` from \`${
