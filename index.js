@@ -148,7 +148,7 @@ app.post("/github-webhook", async (req, res) => {
     const commits = payload.commits
       .map((c) => `- ${c.message} (${c.author.name})`)
       .join("\n");
-    const msg = `📦 **${payload.pusher.name}** pushed to \`${payload.repository.name}\`:\n${commits}`;
+    const msg = ` **${payload.pusher.name}** pushed to \`${payload.repository.name}\`:\n${commits}`;
     await channel.send(msg);
   } else {
     const msg = `📣 GitHub event: \`${event}\` from \`${
