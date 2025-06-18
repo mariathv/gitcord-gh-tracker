@@ -4,6 +4,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const { Octokit } = require("@octokit/rest");
+const crypto = require("crypto");
 
 // === Discord Client ===
 const client = new Client({
@@ -112,10 +113,30 @@ client.on("interactionCreate", async (interaction) => {
 
 client.login(process.env.DISCORD_TOKEN);
 
-// === Optional Webhook Listener ===
+// === GitHub Webhook Listener ===
 const app = express();
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
+// GitHub signature verification
+function verifySignature(req, res, buf) {
+  const signature = req.headers["x-hub-signature-256"];
+  const hmac = crypto.createHmac("sha256", process.env.GITHUB_WEBHOOK_SECRET);
+  const digest = "sha256=" + hmac.update(buf).digest("hex");
+
+  if (signature !== digest) {
+    console.warn("⚠️ Webhook signature mismatch!");
+    throw new Error("Invalid signature.");
+  }
+}
+
+// Apply secure body parser
+app.use(
+  express.json({
+    verify: verifySignature,
+  })
+);
+
+// GitHub Webhook Endpoint
 app.post("/github-webhook", async (req, res) => {
   const event = req.headers["x-github-event"];
   const payload = req.body;
@@ -129,11 +150,16 @@ app.post("/github-webhook", async (req, res) => {
       .join("\n");
     const msg = `📦 **${payload.pusher.name}** pushed to \`${payload.repository.name}\`:\n${commits}`;
     await channel.send(msg);
+  } else {
+    const msg = `📣 GitHub event: \`${event}\` from \`${
+      payload.repository?.full_name || "unknown"
+    }\``;
+    await channel.send(msg);
   }
 
   res.sendStatus(200);
 });
 
-app.listen(process.env.PORT, () => {
-  console.log(`🌐 Webhook listener running on port ${process.env.PORT}`);
+app.listen(PORT, () => {
+  console.log(`🌐 Webhook listener running on port ${PORT}`);
 });
