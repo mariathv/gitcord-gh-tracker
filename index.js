@@ -26,9 +26,27 @@ for (const file of commandFiles) {
   }
 }
 
+// === Persistent Last Event ID ===
+const LAST_ID_FILE = "lastEventId.json";
+
+function saveLastEventId(id) {
+  fs.writeFileSync(LAST_ID_FILE, JSON.stringify({ id }), "utf-8");
+}
+
+function loadLastEventId() {
+  if (!fs.existsSync(LAST_ID_FILE)) return null;
+  try {
+    const data = fs.readFileSync(LAST_ID_FILE, "utf-8");
+    return JSON.parse(data).id || null;
+  } catch (err) {
+    console.error("Failed to read lastEventId:", err);
+    return null;
+  }
+}
+
 // === GitHub Activity Polling ===
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-let lastEventId = null;
+let lastEventId = loadLastEventId();
 
 async function pollGitHubActivity(client) {
   try {
@@ -40,7 +58,6 @@ async function pollGitHubActivity(client) {
     );
 
     const channel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
-
     for (const event of events.reverse()) {
       if (lastEventId && event.id <= lastEventId) continue;
 
@@ -60,6 +77,7 @@ async function pollGitHubActivity(client) {
 
       await channel.send(msg);
       lastEventId = event.id;
+      saveLastEventId(lastEventId);
     }
   } catch (error) {
     console.error("GitHub polling error:", error.message);
@@ -69,10 +87,10 @@ async function pollGitHubActivity(client) {
 // === Discord Events ===
 client.once("ready", () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
-
   console.log("✅ GitHub tracker is active and polling every minute!");
-  pollGitHubActivity(client); // run immediately
-  setInterval(() => pollGitHubActivity(client), 60 * 1000); // run every 1 min
+
+  pollGitHubActivity(client); // Run immediately on boot
+  setInterval(() => pollGitHubActivity(client), 60 * 1000); // Run every 1 minute
 });
 
 client.on("interactionCreate", async (interaction) => {
@@ -85,23 +103,16 @@ client.on("interactionCreate", async (interaction) => {
     await command.execute(interaction);
   } catch (err) {
     console.error(`Error with ${interaction.commandName}:`, err);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        content: "⚠️ Error running command.",
-        ephemeral: true,
-      });
-    } else {
-      await interaction.reply({
-        content: "⚠️ Error running command.",
-        ephemeral: true,
-      });
-    }
+    const msg = { content: "⚠️ Error running command.", ephemeral: true };
+    interaction.replied || interaction.deferred
+      ? await interaction.followUp(msg)
+      : await interaction.reply(msg);
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
 
-// === Webhook Listener (Optional for specific repo webhooks) ===
+// === Optional Webhook Listener ===
 const app = express();
 app.use(express.json());
 
