@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const { Octokit } = require("@octokit/rest");
 
+// === Discord Client ===
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
@@ -29,16 +30,18 @@ for (const file of commandFiles) {
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 let lastEventId = null;
 
-async function pollGitHubActivity() {
+async function pollGitHubActivity(client) {
   try {
-    const events = await octokit.activity.listEventsForUser({
-      username: process.env.GITHUB_USERNAME,
-      per_page: 5,
-    });
+    const { data: events } = await octokit.request(
+      "GET /users/{username}/events/public",
+      {
+        username: process.env.GITHUB_USERNAME,
+      }
+    );
 
     const channel = await client.channels.fetch(process.env.LOG_CHANNEL_ID);
 
-    for (const event of events.data.reverse()) {
+    for (const event of events.reverse()) {
       if (lastEventId && event.id <= lastEventId) continue;
 
       let msg = `📣 **${event.type}** in \`${event.repo.name}\``;
@@ -50,9 +53,9 @@ async function pollGitHubActivity() {
             .map((c) => `- ${c.message} (${c.author.name})`)
             .join("\n");
       } else if (event.type === "IssuesEvent") {
-        msg += `\n${event.payload.action} issue #${event.payload.issue.number}: ${event.payload.issue.title}`;
+        msg += `\n📝 ${event.payload.action} issue #${event.payload.issue.number}: ${event.payload.issue.title}`;
       } else if (event.type === "PullRequestEvent") {
-        msg += `\n${event.payload.action} pull request #${event.payload.pull_request.number}: ${event.payload.pull_request.title}`;
+        msg += `\n🔃 ${event.payload.action} pull request #${event.payload.pull_request.number}: ${event.payload.pull_request.title}`;
       }
 
       await channel.send(msg);
@@ -66,7 +69,10 @@ async function pollGitHubActivity() {
 // === Discord Events ===
 client.once("ready", () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
-  setInterval(pollGitHubActivity, 60 * 1000); // poll every 1 min
+
+  console.log("✅ GitHub tracker is active and polling every minute!");
+  pollGitHubActivity(client); // run immediately
+  setInterval(() => pollGitHubActivity(client), 60 * 1000); // run every 1 min
 });
 
 client.on("interactionCreate", async (interaction) => {
@@ -95,7 +101,7 @@ client.on("interactionCreate", async (interaction) => {
 
 client.login(process.env.DISCORD_TOKEN);
 
-// === Webhook Listener (Optional for repo-based events) ===
+// === Webhook Listener (Optional for specific repo webhooks) ===
 const app = express();
 app.use(express.json());
 
