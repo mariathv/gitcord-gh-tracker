@@ -20,7 +20,7 @@ export async function execute(interaction) {
   if (!owner || !repo) {
     return interaction.reply({
       content: "❌ Invalid repo format. Use `owner/repo`.",
-      ephemeral: true,
+      flags: 64,
     });
   }
 
@@ -45,7 +45,7 @@ export async function execute(interaction) {
     console.error("Webhook creation error:", err);
     await interaction.reply({
       content: `⚠️ Failed to create webhook: ${err.message}`,
-      ephemeral: true,
+      flags: 64,
     });
   }
 }
