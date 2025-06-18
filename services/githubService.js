@@ -1,7 +1,8 @@
-const { Octokit } = require("@octokit/rest");
+import { Octokit } from "@octokit/rest";
+
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
-async function getUserStats(username) {
+export async function getUserStats(username) {
   const { data } = await octokit.rest.users.getByUsername({ username });
   return {
     followers: data.followers,
@@ -9,5 +10,3 @@ async function getUserStats(username) {
     createdAt: data.created_at,
   };
 }
-
-module.exports = { getUserStats };
